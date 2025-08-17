@@ -1,0 +1,119 @@
+﻿@page "/evidence"
+
+@attribute [StreamRendering]
+
+@rendermode InteractiveServer
+
+@using LevelLegal.Domain.Interfaces.Services
+@using LevelLegal.Domain.Entities.ViewModels
+@using LevelLegal.Infrastructure.Services
+
+@inject IEvidenceService _evidenceService
+@inject IMatterService _matterService
+@inject ILogger<Evidence> Logger
+
+<PageTitle>Evidence</PageTitle>
+
+<h1>Evidence</h1>
+
+<select class="form-control @(data == null ? "d-none" : "")" @onchange="HandleSelectionChange">
+    <option value="0">-- All --</option>
+    @foreach (var item in Options)
+    {
+        <option value="@item.Id">@item.Name</option>
+    }
+</select>
+
+@if (data == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Matter</th>
+                <th>Description</th>
+                <th>Serial Number</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in data)
+            {
+                <tr>
+                    <td>@item.MatterName</td>
+                    <td>@item.Description</td>
+                    <td>@item.SerialNumber</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+
+    #region variables
+    private List<EvidenceVM>? data = null;
+
+    private string SelectedValue { get; set; } = string.Empty;
+    private List<OptionItemVM> Options { get; set; } = new List<OptionItemVM>();
+
+    [CascadingParameter] private HttpContext? httpContext { get; set; }
+    private bool _isPreRender => httpContext is not null;
+    #endregion
+
+    #region events
+    protected override async Task OnInitializedAsync()
+    {
+        if (!_isPreRender)
+        {
+            await Init();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) {
+            
+        }
+    }
+
+    private async Task HandleSelectionChange(ChangeEventArgs e)
+    {
+        await SelectChange(e);
+    }
+    #endregion
+
+    #region function
+    async Task Init()
+    {
+        data = null;
+
+        await Task.Delay(500);
+
+        Logger.LogInformation("Fetching data from evidences.");
+
+        data = await _evidenceService.GetAllAsync();
+
+        Logger.LogInformation("Fetching data from matters.");
+        Options = await _matterService.GetAllToOptionItemAsync();
+    }
+
+    async Task SelectChange(ChangeEventArgs e)
+    {
+        SelectedValue = e.Value.ToString();
+
+        var selectedMatter = Options.FirstOrDefault(m => m.Id == SelectedValue);
+
+        Logger.LogInformation($"Fetching data from evidence filtered by \"{(selectedMatter == null ? "All" : selectedMatter.Name)}\".");
+
+        data = null;
+
+        await Task.Delay(500);
+
+        data = await _evidenceService.GetAllAsync(Convert.ToInt32(SelectedValue));
+    }
+    #endregion
+
+}
